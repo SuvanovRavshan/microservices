@@ -15,8 +15,16 @@ export class UserRepository {
     return await newUser.save();
   }
 
+  async updateUser({ _id, ...rest }: UserEntity): Promise<User> {
+    return this.userModel.findByIdAndUpdate(_id, rest, { new: true }).exec();
+  }
+
   async findUser(email: string): Promise<User> {
     return this.userModel.findOne({ email }).exec();
+  }
+
+  async findUserById(id: string): Promise<User> {
+    return this.userModel.findById(id).select(['-passwordHash']).exec();
   }
 
   async deleteUser(email: string) {
