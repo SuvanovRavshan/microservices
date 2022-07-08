@@ -11,7 +11,7 @@ export namespace CourseGetCourse {
   }
 
   export class Response {
-    course: ICourse;
+    course: ICourse | null;
   }
 }
 
