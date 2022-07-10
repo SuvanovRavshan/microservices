@@ -1,5 +1,6 @@
-import { IUser, IUserCourses, PurchaseState, UserRole } from '@purple/interfaces';
+import { IDomainEvent, IUser, IUserCourses, PurchaseState, UserRole } from '@purple/interfaces';
 import { compare, genSalt, hash } from 'bcryptjs';
+import { AccountChangedCourse } from '@purple/contracts';
 
 export class UserEntity implements IUser {
   _id?: string;
@@ -8,6 +9,7 @@ export class UserEntity implements IUser {
   passwordHash: string;
   role: UserRole;
   courses: IUserCourses[];
+  events: IDomainEvent[] = [];
 
   constructor(user:IUser) {
     this._id = user._id;
@@ -19,7 +21,7 @@ export class UserEntity implements IUser {
   }
 
   public setCourseStatus(courseId: string, state: PurchaseState) {
-    const exist = this.courses.find(course => course._id === courseId);
+    const exist = this.courses.find(course => course.courseId === courseId);
     if(!exist) {
       this.courses.push({
         courseId,
@@ -28,16 +30,29 @@ export class UserEntity implements IUser {
       return this;
     }
     if(state === PurchaseState.Cancelled) {
-      this.courses = this.courses.filter(course => course._id !== courseId);
+      this.courses = this.courses.filter(course => course.courseId !== courseId);
       return this;
     }
     this.courses = this.courses.map(course => {
-      if (course._id === courseId) {
+      if (course.courseId === courseId) {
         course.purchaseState = state;
       }
       return course;
     });
+    this.events.push({
+      data: {
+        courseId,
+        userId: this._id,
+        state,
+      },
+      topic: AccountChangedCourse.topic
+    });
     return this;
+  }
+
+  getCourseState(courseId: string): PurchaseState {
+    const course = this.courses.find(course => course.courseId === courseId);
+    return course ? course.purchaseState : PurchaseState.Started;
   }
 
   public async setPassword(password: string): Promise<this> {

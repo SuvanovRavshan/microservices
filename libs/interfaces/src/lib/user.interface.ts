@@ -14,7 +14,6 @@ export interface IUser {
 }
 
 export interface IUserCourses {
-  _id?: string;
   courseId: string;
   purchaseState: PurchaseState;
 }

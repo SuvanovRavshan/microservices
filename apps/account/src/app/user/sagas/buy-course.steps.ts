@@ -1,6 +1,6 @@
 import { BuyCourseSagaState } from './buy-course.state';
 import { UserEntity } from '../entities/user.entity';
-import { CourseGetCourse, PaymentCheck, PaymentGenerateLink } from '@purple/contracts';
+import { CourseGetCourse, PaymentCheck, PaymentGenerateLink, PaymentStatus } from '@purple/contracts';
 import { PurchaseState } from '@purple/interfaces';
 
 export class BuyCourseSagaStateStarted extends BuyCourseSagaState {
@@ -9,7 +9,7 @@ export class BuyCourseSagaStateStarted extends BuyCourseSagaState {
     return { user: this.saga.user };
   }
 
-  public async checkPayment(): Promise<{ user: UserEntity }> {
+  public async checkPayment(): Promise<{ user: UserEntity, status: PaymentStatus }> {
     throw new Error('The payment is not yet started');
   }
 
@@ -39,20 +39,20 @@ export class BuyCourseSagaStateWaitingForPayment extends BuyCourseSagaState {
     throw new Error('The payment in progress. Can not cancel');
   }
 
-  public async checkPayment(): Promise<{ user: UserEntity }> {
+  public async checkPayment(): Promise<{ user: UserEntity, status: PaymentStatus }> {
     const { state } = await this.saga.rmqService.send<PaymentCheck.Request, PaymentCheck.Response>(PaymentCheck.topic, {
       userId: this.saga.user._id,
       courseId: this.saga.courseId,
     });
     if (state === 'canceled') {
       this.saga.setState(PurchaseState.Cancelled, this.saga.courseId);
-      return { user: this.saga.user };
+      return { user: this.saga.user, status: 'canceled' };
     }
-    if(state !== 'success') {
-      return { user: this.saga.user };
+    if(state === 'success') {
+      return { user: this.saga.user, status: 'success' };
     }
     this.saga.setState(PurchaseState.Purchased, this.saga.courseId);
-    return { user: this.saga.user };
+    return { user: this.saga.user, status: 'progress' };
   }
 
   pay(): Promise<{ paymentLink: string; user: UserEntity }> {
@@ -66,7 +66,7 @@ export class BuyCourseSagaStatePurchased extends BuyCourseSagaState {
     throw new Error('The payment is finished. Can not cancel');
   }
 
-  public async checkPayment(): Promise<{ user: UserEntity }> {
+  public async checkPayment(): Promise<{ user: UserEntity, status: PaymentStatus }> {
     throw new Error('Must not check payment after payment is finished');
   }
 
@@ -80,7 +80,7 @@ export class BuyCourseSagaStateCanceled extends BuyCourseSagaState {
     throw new Error('The payment is finished. Can not cancel');
   }
 
-  public async checkPayment(): Promise<{ user: UserEntity }> {
+  public async checkPayment(): Promise<{ user: UserEntity, status: PaymentStatus  }> {
     throw new Error('Must not check payment after payment is canceled');
   }
 
